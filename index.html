@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>光と影の練習帳 — 日系相機曝光與景深模擬器</title>
+  <style>
+    :root {
+      --bg-warm: #fbf9f5;
+      --bg-card: #ffffff;
+      --bg-subtle: #f4f0ea;
+      --border-soft: #e7e2d9;
+      --border-accent: #cfc7ba;
+      --text-main: #2d2a26;
+      --text-muted: #7d776f;
+      --text-light: #a9a399;
+      --wood-warm: #c59b6d;
+      --nature-green: #6c7c59;
+      --accent-coral: #cf7358;
+      --shadow-soft: 0 4px 20px rgba(45, 42, 38, 0.04);
+      --shadow-hover: 0 8px 28px rgba(45, 42, 38, 0.08);
+      --font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans TC", sans-serif;
+      --font-serif: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif TC", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-warm);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      line-height: 1.65;
+      padding: 32px 16px 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* 頂部標題 */
+    header {
+      text-align: center;
+      max-width: 680px;
+      margin-bottom: 28px;
+    }
+
+    .brand-tag {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border: 1px solid var(--border-soft);
+      padding: 3px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      background: var(--bg-card);
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 26px;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .sub-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    /* 主要容器 */
+    .container {
+      width: 100%;
+      max-width: 1040px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+
+    @media (min-width: 860px) {
+      .container {
+        grid-template-columns: 1.15fr 0.85fr;
+        align-items: start;
+      }
+    }
+
+    /* 觀景窗區域 */
+    .viewfinder-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .viewfinder-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #eeebe5;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* 觀景窗覆蓋輔助線 */
+    .finder-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 16px;
+    }
+
+    .overlay-grid {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.25;
+      border: 1px dashed #ffffff;
+      background: 
+        linear-gradient(to right, transparent 33.3%, rgba(255,255,255,0.4) 33.3%, rgba(255,255,255,0.4) 33.6%, transparent 33.6%, transparent 66.6%, rgba(255,255,255,0.4) 66.6%, rgba(255,255,255,0.4) 66.9%, transparent 66.9%),
+        linear-gradient(to bottom, transparent 33.3%, rgba(255,255,255,0.4) 33.3%, rgba(255,255,255,0.4) 33.6%, transparent 33.6%, transparent 66.6%, rgba(255,255,255,0.4) 66.6%, rgba(255,255,255,0.4) 66.9%, transparent 66.9%);
+    }
+
+    .finder-top, .finder-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 2;
+    }
+
+    .badge-iso-mode {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(4px);
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .focus-bracket {
+      position: absolute;
+      top: 58%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      border: 1px dashed rgba(255, 255, 255, 0.7);
+      border-radius: 6px;
+      pointer-events: none;
+    }
+
+    .flash-effect {
+      position: absolute;
+      inset: 0;
+      background: #ffffff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s ease-out;
+    }
+
+    /* 觀景窗下方曝光量表 (EV Meter) */
+    .ev-bar-container {
+      background: var(--bg-subtle);
+      border-radius: 8px;
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1px solid var(--border-soft);
+    }
+
+    .ev-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .ev-value {
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .ev-scale {
+      position: relative;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+
+    .ev-scale-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--border-accent);
+      z-index: 1;
+    }
+
+    .scale-mark {
+      position: relative;
+      z-index: 2;
+      width: 1px;
+      height: 8px;
+      background: var(--border-accent);
+    }
+
+    .scale-mark.zero {
+      height: 12px;
+      background: var(--text-main);
+      width: 2px;
+    }
+
+    .ev-pointer {
+      position: absolute;
+      top: 50%;
+      width: 8px;
+      height: 8px;
+      background: var(--wood-warm);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 3;
+      transition: left 0.15s cubic-bezier(0.2, 0.9, 0.4, 1);
+      box-shadow: 0 0 0 3px rgba(197, 155, 109, 0.2);
+    }
+
+    /* 快門拍照按鈕 */
+    .action-bar {
+      display: flex;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .btn-shutter {
+      flex: 1;
+      background: var(--text-main);
+      color: #fff;
+      border: none;
+      padding: 13px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: var(--font-family);
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-shutter:hover {
+      background: #413d37;
+    }
+
+    .btn-shutter:active {
+      transform: scale(0.985);
+    }
+
+    .shutter-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--wood-warm);
+      border-radius: 50%;
+    }
+
+    /* 控制面板 */
+    .control-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 22px 20px;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .panel-section-title {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .panel-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-soft);
+    }
+
+    /* 環境光情境選單 */
+    .light-presets {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .btn-preset {
+      background: var(--bg-warm);
+      border: 1px solid var(--border-soft);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-main);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .btn-preset span:last-child {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .btn-preset:hover {
+      border-color: var(--border-accent);
+      background: #fff;
+    }
+
+    .btn-preset.active {
+      background: #fff;
+      border-color: var(--text-main);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    /* 控制條群組 */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .control-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .control-val {
+      font-family: var(--font-serif);
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-main);
+      letter-spacing: 0.02em;
+    }
+
+    .control-subhint {
+      font-size: 11px;
+      color: var(--text-light);
+    }
+
+    /* 簡約無印風拉桿 */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--bg-subtle);
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+      margin: 8px 0 2px;
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      height: 4px;
+      border-radius: 999px;
+      background: var(--border-soft);
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid var(--text-main);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      margin-top: -7px;
+      transition: transform 0.1s, border-color 0.1s;
+    }
+
+    input[type=range]:active::-webkit-slider-thumb {
+      transform: scale(1.15);
+      border-color: var(--wood-warm);
+    }
+
+    /* 攝影手冊小提示卡片 */
+    .note-card {
+      background: var(--bg-warm);
+      border-left: 2px solid var(--wood-warm);
+      border-radius: 0 8px 8px 0;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .note-card strong {
+      color: var(--text-main);
+      font-weight: 500;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* 拍立得/明信片預覽 Modal */
+    .postcard-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(35, 33, 30, 0.45);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+
+    .postcard-modal.show {
+      display: flex;
+    }
+
+    .postcard-frame {
+      background: #ffffff;
+      width: 100%;
+      max-width: 420px;
+      padding: 16px 16px 24px;
+      border-radius: 6px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+      transform: translateY(10px) rotate(-0.5deg);
+      transition: transform 0.25s ease;
+      animation: modalSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes modalSlide {
+      from { transform: translateY(20px) scale(0.97); opacity: 0; }
+      to { transform: translateY(0) scale(1) rotate(-0.5deg); opacity: 1; }
+    }
+
+    .postcard-image-box {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #222;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .postcard-image-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .postcard-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 0 4px;
+    }
+
+    .postcard-stamp-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed var(--border-soft);
+      padding-bottom: 8px;
+    }
+
+    .postcard-title {
+      font-family: var(--font-serif);
+      font-size: 15px;
+      letter-spacing: 0.05em;
+      color: var(--text-main);
+    }
+
+    .postcard-date {
+      font-size: 11px;
+      color: var(--text-light);
+      letter-spacing: 0.06em;
+    }
+
+    .postcard-exif {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-family);
+    }
+
+    .postcard-exif span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .postcard-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-soft);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--border-soft);
+    }
+
+    .btn-primary-outline {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--text-main);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      transition: all 0.15s;
+    }
+
+    .btn-primary-outline:hover {
+      background: var(--text-main);
+      color: #fff;
+    }
+
+    /* 頁尾 */
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-light);
+      letter-spacing: 0.04em;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-tag">Photography Notebook · 練習帳</div>
+    <h1>光と影の練習帳</h1>
+    <div class="sub-title">相機曝光三要素與景深視覺化模擬器 — 透過微風、光影與器物，感受光學之美</div>
+  </header>
+
+  <main class="container">
+    <!-- 左側：觀景窗與儀表 -->
+    <section class="viewfinder-card">
+      <div class="viewfinder-wrapper">
+        <canvas id="viewfinderCanvas" width="800" height="600"></canvas>
+        <div class="overlay-grid"></div>
+        <div class="focus-bracket"></div>
+        <div class="finder-overlay">
+          <div class="finder-top">
+            <span class="badge-iso-mode">M 模式 · 中央點對焦</span>
+            <span id="sceneTag" class="badge-iso-mode">明亮晴天</span>
+          </div>
+          <div class="finder-bottom">
+            <span id="canvasExifPreview" class="badge-iso-mode">f/2.8 · 1/250s · ISO 200</span>
+          </div>
+        </div>
+        <div id="flashEffect" class="flash-effect"></div>
+      </div>
+
+      <!-- EV 測光表 -->
+      <div class="ev-bar-container">
+        <div class="ev-header">
+          <span>測光指示計 (Exposure Value)</span>
+          <span id="evValueText" class="ev-value">±0.0 EV (適正曝光)</span>
+        </div>
+        <div class="ev-scale">
+          <div class="ev-scale-line"></div>
+          <div class="scale-mark"></div>
+          <div class="scale-mark"></div>
+          <div class="scale-mark"></div>
+          <div class="scale-mark zero"></div>
+          <div class="scale-mark"></div>
+          <div class="scale-mark"></div>
+          <div class="scale-mark"></div>
+          <div id="evPointer" class="ev-pointer" style="left: 50%;"></div>
+        </div>
+      </div>
+
+      <!-- 快門動作 -->
+      <div class="action-bar">
+        <button id="btnCapture" class="btn-shutter">
+          <span class="shutter-dot"></span>
+          <span>按下快門 · 記錄此刻</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 右側：控制面板 -->
+    <section class="control-panel">
+      <!-- 環境光設定 -->
+      <div>
+        <div class="panel-section-title">自然光照場景 (Ambient Light)</div>
+        <div class="light-presets">
+          <button class="btn-preset active" data-light="13">
+            <span>明亮晴天</span>
+            <span>晴天窗邊 (EV 13)</span>
+          </button>
+          <button class="btn-preset" data-light="10">
+            <span>午後陰天</span>
+            <span>柔和漫射光 (EV 10)</span>
+          </button>
+          <button class="btn-preset" data-light="8">
+            <span>晨昏微光</span>
+            <span>朝霞暖意 (EV 8)</span>
+          </button>
+          <button class="btn-preset" data-light="4">
+            <span>靜謐夜晚</span>
+            <span>室內幽光 (EV 4)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 光圈 -->
+      <div class="control-group">
+        <div class="control-label-row">
+          <div>
+            <span class="control-name">光圈 (Aperture)</span>
+            <span class="control-subhint">／ 決定背景虛化與入光量</span>
+          </div>
+          <span id="apertureValue" class="control-val">f/2.8</span>
+        </div>
+        <input type="range" id="apertureSlider" min="0" max="8" step="1" value="2">
+      </div>
+
+      <!-- 快門速度 -->
+      <div class="control-group">
+        <div class="control-label-row">
+          <div>
+            <span class="control-name">快門速度 (Shutter Speed)</span>
+            <span class="control-subhint">／ 定格微風或捕捉流動</span>
+          </div>
+          <span id="shutterValue" class="control-val">1/250s</span>
+        </div>
+        <input type="range" id="shutterSlider" min="0" max="11" step="1" value="4">
+      </div>
+
+      <!-- ISO 感光度 -->
+      <div class="control-group">
+        <div class="control-label-row">
+          <div>
+            <span class="control-name">感光度 (ISO)</span>
+            <span class="control-subhint">／ 光電訊號增益與微質顆粒</span>
+          </div>
+          <span id="isoValue" class="control-val">200</span>
+        </div>
+        <input type="range" id="isoSlider" min="0" max="7" step="1" value="1">
+      </div>
+
+      <!-- 攝影手冊筆記卡片 -->
+      <div class="note-card" id="educationalNote">
+        <strong>攝影筆記</strong>
+        <span id="noteContent">f/2.8 能帶來溫柔的淺景深，窗外的雜木林化為柔和光斑，使焦點中的陶瓷杯特別沉靜。</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- 拍立得/明信片預覽 Modal -->
+  <div id="postcardModal" class="postcard-modal">
+    <div class="postcard-frame">
+      <div class="postcard-image-box">
+        <img id="postcardImg" src="" alt="Captured moment">
+      </div>
+      <div class="postcard-meta">
+        <div class="postcard-stamp-row">
+          <span class="postcard-title">日々の静けさ</span>
+          <span id="postcardTimestamp" class="postcard-date">2026.10.20 · 15:00</span>
+        </div>
+        <div class="postcard-exif">
+          <span id="modalAperture">f/2.8</span>
+          <span id="modalShutter">1/250s</span>
+          <span id="modalIso">ISO 200</span>
+          <span id="modalEv">±0.0 EV</span>
+        </div>
+      </div>
+      <div class="postcard-actions">
+        <button id="btnCloseModal" class="btn-secondary">返回觀察</button>
+        <a id="btnDownload" download="moment.png" class="btn-primary-outline">保存明信片</a>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>光と影の練習帳 · Minimalist Japanese Camera Simulator · Single File for GitHub Pages</p>
+  </footer>
+
+  <script>
+    /* =====================================================================
+       常數與參數級距設定 (Standard Stops)
+       ===================================================================== */
+    const APERTURES = [1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22];
+    const SHUTTERS = [
+      { display: "1/4000s", sec: 1/4000 },
+      { display: "1/2000s", sec: 1/2000 },
+      { display: "1/1000s", sec: 1/1000 },
+      { display: "1/500s",  sec: 1/500 },
+      { display: "1/250s",  sec: 1/250 },
+      { display: "1/125s",  sec: 1/125 },
+      { display: "1/60s",   sec: 1/60 },
+      { display: "1/30s",   sec: 1/30 },
+      { display: "1/15s",   sec: 1/15 },
+      { display: "1/8s",    sec: 1/8 },
+      { display: "1/4s",    sec: 1/4 },
+      { display: "1/2s",    sec: 1/2 }
+    ];
+    const ISOS = [100, 200, 400, 800, 1600, 3200, 6400, 12800];
+
+    // 目前相機狀態
+    const state = {
+      apertureIdx: 2,   // f/2.8
+      shutterIdx: 4,    // 1/250s
+      isoIdx: 1,        // ISO 200
+      sceneEV: 13,      // 晴天窗邊
+      sceneName: "明亮晴天",
+      pinwheelAngle: 0,
+      lastTimestamp: 0
+    };
+
+    /* =====================================================================
+       DOM 元素快取
+       ===================================================================== */
+    const canvas = document.getElementById('viewfinderCanvas');
+    const ctx = canvas.getContext('2d');
+    const apertureSlider = document.getElementById('apertureSlider');
+    const shutterSlider = document.getElementById('shutterSlider');
+    const isoSlider = document.getElementById('isoSlider');
+    const apertureValue = document.getElementById('apertureValue');
+    const shutterValue = document.getElementById('shutterValue');
+    const isoValue = document.getElementById('isoValue');
+    const evValueText = document.getElementById('evValueText');
+    const evPointer = document.getElementById('evPointer');
+    const educationalNote = document.getElementById('noteContent');
+    const canvasExifPreview = document.getElementById('canvasExifPreview');
+    const sceneTag = document.getElementById('sceneTag');
+    const btnCapture = document.getElementById('btnCapture');
+    const flashEffect = document.getElementById('flashEffect');
+    const postcardModal = document.getElementById('postcardModal');
+    const postcardImg = document.getElementById('postcardImg');
+    const btnCloseModal = document.getElementById('btnCloseModal');
+    const btnDownload = document.getElementById('btnDownload');
+    const modalAperture = document.getElementById('modalAperture');
+    const modalShutter = document.getElementById('modalShutter');
+    const modalIso = document.getElementById('modalIso');
+    const modalEv = document.getElementById('modalEv');
+    const postcardTimestamp = document.getElementById('postcardTimestamp');
+
+    /* =====================================================================
+       音效合成器 (Web Audio API - 溫潤清脆的日系機械快門聲)
+       ===================================================================== */
+    let audioCtx = null;
+    function playGentleShutterSound() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const t = audioCtx.currentTime;
+        // 柔和機械「喀」聲 (低通噪聲突發)
+        const bufferSize = audioCtx.sampleRate * 0.05;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25));
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1400, t);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.5, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.045);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(t);
+
+        // 第二下後廉輕閉聲 (快門速度感)
+        const delay = Math.min(Math.max(SHUTTERS[state.shutterIdx].sec, 0.08), 0.35);
+        const gain2 = audioCtx.createGain();
+        gain2.gain.setValueAtTime(0.35, t + delay);
+        gain2.gain.exponentialRampToValueAtTime(0.01, t + delay + 0.04);
+        
+        const noise2 = audioCtx.createBufferSource();
+        noise2.buffer = buffer;
+        noise2.connect(filter);
+        filter.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        noise2.start(t + delay);
+      } catch (e) {
+        // 音訊受瀏覽器安全原則阻擋時靜音處理
+      }
+    }
+
+    /* =====================================================================
+       光學曝光計算與提示生成
+       ===================================================================== */
+    function calculateEV() {
+      const N = APERTURES[state.apertureIdx];
+      const t = SHUTTERS[state.shutterIdx].sec;
+      const ISO = ISOS[state.isoIdx];
+
+      // 相機設定的相機曝光值 EV = log2(N^2 / t)
+      const cameraEV = Math.log2((N * N) / t);
+      // 根據目前 ISO 與場景環境光 計算實際被感光值
+      // 基準：ISO 100 時，若場景光為 sceneEV，則 cameraEV == sceneEV 代表適正曝光
+      const targetEV = state.sceneEV + Math.log2(ISO / 100);
+      const diffEV = targetEV - cameraEV; // >0 代表過曝, <0 代表欠曝
+
+      return {
+        diffEV: diffEV,
+        cameraEV: cameraEV,
+        brightnessFactor: Math.pow(2, diffEV) // 亮度倍率
+      };
+    }
+
+    function updateUI() {
+      const currentAperture = APERTURES[state.apertureIdx];
+      const currentShutter = SHUTTERS[state.shutterIdx];
+      const currentIso = ISOS[state.isoIdx];
+
+      apertureValue.textContent = `f/${currentAperture}`;
+      shutterValue.textContent = currentShutter.display;
+      isoValue.textContent = `${currentIso}`;
+
+      canvasExifPreview.textContent = `f/${currentAperture} · ${currentShutter.display} · ISO ${currentIso}`;
+      sceneTag.textContent = state.sceneName;
+
+      const { diffEV } = calculateEV();
+
+      // 更新 EV 標尺指針 (-3EV ~ +3EV 映射到 0% ~ 100%)
+      const clampedEV = Math.max(-3, Math.min(3, diffEV));
+      const percentage = ((clampedEV + 3) / 6) * 100;
+      evPointer.style.left = `${percentage}%`;
+
+      if (Math.abs(diffEV) < 0.25) {
+        evValueText.textContent = `±0.0 EV (適正曝光)`;
+        evValueText.style.color = "var(--text-main)";
+      } else if (diffEV > 0) {
+        evValueText.textContent = `+${diffEV.toFixed(1)} EV (${diffEV > 2.0 ? '顯著過曝' : '畫面偏亮'})`;
+        evValueText.style.color = diffEV > 2.0 ? "var(--accent-coral)" : "var(--text-main)";
+      } else {
+        evValueText.textContent = `${diffEV.toFixed(1)} EV (${diffEV < -2.0 ? '暗部死黑' : '光線稍暗'})`;
+        evValueText.style.color = diffEV < -2.0 ? "var(--text-muted)" : "var(--text-main)";
+      }
+
+      // 動態日式攝影隨筆筆記
+      let note = "";
+      if (currentAperture <= 2.0) {
+        note = `大光圈 f/${currentAperture} 營造出寧靜柔和的淺景深，窗外的散景有如水彩般化開，視線全落在此刻的咖啡香氣中。`;
+      } else if (currentAperture >= 11) {
+        note = `收細光圈至 f/${currentAperture}，從桌前木紋一路到窗外遠景都清晰可見，適合紀錄空間的悠遠縱深。`;
+      } else if (currentShutter.sec >= 1/15) {
+        note = `慢快門 ${currentShutter.display} 捕捉下微風拂過紙風車的溫柔殘影；若在手持拍攝時，記得輕吐氣並穩定身心。`;
+      } else if (currentShutter.sec <= 1/1000) {
+        note = `高速快門 ${currentShutter.display} 瞬間定格風中飛轉的葉片，彷彿將流逝的時間一瞬封存。`;
+      } else if (currentIso >= 3200) {
+        note = `高感光度 ISO ${currentIso} 捕捉幽微暗光，雖然微帶空氣般的細碎顆粒，卻賦予畫面如老膠卷般的樸拙質感。`;
+      } else {
+        note = `標準設定平衡優雅，明暗過渡自然溫潤，完美襯托木質桌面的靜謐氛圍。`;
+      }
+      educationalNote.textContent = note;
+    }
+
+    /* =====================================================================
+       日系風格 Canvas 繪圖引擎 (窗邊、咖啡、紙風車、景深與動態模糊)
+       ===================================================================== */
+    // 預先產生光斑資料，讓散景自然美麗
+    const bokehCircles = [];
+    for (let i = 0; i < 22; i++) {
+      bokehCircles.push({
+        x: 180 + Math.random() * 480,
+        y: 80 + Math.random() * 220,
+        r: 18 + Math.random() * 32,
+        color: ['#e3f1e9', '#f9eee1', '#f6dfd7', '#e1e9f0', '#fffaf0'][Math.floor(Math.random() * 5)],
+        alpha: 0.35 + Math.random() * 0.45
+      });
+    }
+
+    function renderScene(timestamp) {
+      if (!state.lastTimestamp) state.lastTimestamp = timestamp;
+      const dt = (timestamp - state.lastTimestamp) / 1000;
+      state.lastTimestamp = timestamp;
+
+      // 紙風車旋轉物理 (速度以每秒約 1.8 圈計算)
+      const rotSpeed = 11.0; 
+      state.pinwheelAngle += rotSpeed * dt;
+
+      const { brightnessFactor } = calculateEV();
+      const apertureNum = APERTURES[state.apertureIdx];
+      const shutterSec = SHUTTERS[state.shutterIdx].sec;
+      const isoNum = ISOS[state.isoIdx];
+
+      // 景深虛化半徑 (光圈越小半徑越小；f/1.4 時模糊強，f/16 時銳利)
+      const dofBlur = Math.max(0.5, (1 / apertureNum) * 32 - 1);
+
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // -------------------------------------------------------------
+      // 1. 背景層 (窗外景色 + 景深 Blur)
+      // -------------------------------------------------------------
+      ctx.save();
+      if (dofBlur > 1) {
+        ctx.filter = `blur(${dofBlur.toFixed(1)}px)`;
+      }
+
+      // 天空與柔和晨光/晝光漸層
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, 360);
+      skyGrad.addColorStop(0, '#dbe7ec');
+      skyGrad.addColorStop(0.7, '#e8efe9');
+      skyGrad.addColorStop(1, '#e3ded3');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, canvas.width, 360);
+
+      // 窗外遠山與日系綠意林木
+      ctx.fillStyle = '#b7c7b0';
+      ctx.beginPath();
+      ctx.arc(260, 340, 160, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#9cb493';
+      ctx.beginPath();
+      ctx.arc(480, 350, 190, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 窗外遠景日系極簡瓦簷線條
+      ctx.strokeStyle = '#857e72';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(120, 260);
+      ctx.lineTo(240, 235);
+      ctx.lineTo(360, 255);
+      ctx.stroke();
+
+      // 散景光斑 (Bokeh circles) - 光圈大時半徑放大且柔和
+      bokehCircles.forEach(b => {
+        ctx.beginPath();
+        const bokehRadius = b.r * (dofBlur / 7 + 0.35);
+        ctx.fillStyle = b.color;
+        ctx.globalAlpha = b.alpha * Math.min(1.2, dofBlur / 5);
+        ctx.arc(b.x, b.y, bokehRadius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore(); // 結束背景 Blur
+
+      // -------------------------------------------------------------
+      // 2. 中景層：木質窗框與柔和日光透光
+      // -------------------------------------------------------------
+      ctx.save();
+      ctx.fillStyle = '#ede8df';
+      // 左窗框
+      ctx.fillRect(0, 0, 90, 420);
+      // 右窗框
+      ctx.fillRect(710, 0, 90, 420);
+      // 上窗楣
+      ctx.fillRect(0, 0, canvas.width, 42);
+      // 窗欞垂直細木條
+      ctx.fillStyle = '#e0d8ca';
+      ctx.fillRect(380, 0, 14, 420);
+      ctx.restore();
+
+      // -------------------------------------------------------------
+      // 3. 動態層：窗台上的小紙風車 (檢驗快門凝結 vs 旋轉動態模糊)
+      // -------------------------------------------------------------
+      ctx.save();
+      const pwX = 260;
+      const pwY = 240;
+
+      // 風車小木棍
+      ctx.strokeStyle = '#9c8874';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(pwX, pwY);
+      ctx.lineTo(pwX + 6, pwY + 160);
+      ctx.stroke();
+
+      // 計算快門在轉動時的殘影取樣步數
+      // 快門越慢 (如 1/4s)，取樣疊加次數與旋轉拖影角度越寬
+      const blurAngleSpan = rotSpeed * Math.min(shutterSec, 0.45);
+      const blurSteps = shutterSec > 1/125 ? Math.min(12, Math.floor(blurAngleSpan * 15) + 2) : 1;
+      const stepAlpha = 1 / blurSteps;
+
+      for (let s = 0; s < blurSteps; s++) {
+        const curAngle = state.pinwheelAngle - (blurAngleSpan * (s / blurSteps));
+        ctx.save();
+        ctx.translate(pwX, pwY);
+        ctx.rotate(curAngle);
+        ctx.globalAlpha = (s === 0 ? 0.9 : stepAlpha * 0.85);
+
+        // 四片日式和紙配色葉片 (櫻粉、若草、淺米、藍灰)
+        const bladeColors = ['#e69992', '#8fae8b', '#e8d8b8', '#869eb5'];
+        for (let b = 0; b < 4; b++) {
+          ctx.rotate(Math.PI / 2);
+          ctx.fillStyle = bladeColors[b];
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(24, -18, 48, -4);
+          ctx.lineTo(0, 0);
+          ctx.fill();
+        }
+        // 風車軸心圓釘
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+
+      // -------------------------------------------------------------
+      // 4. 前景主體層：暖木桌几、陶製咖啡杯與多肉植栽 (對焦目標：極度清晰)
+      // -------------------------------------------------------------
+      ctx.save();
+      // 暖色木質桌面
+      const tableGrad = ctx.createLinearGradient(0, 380, 0, 600);
+      tableGrad.addColorStop(0, '#c7ab8d');
+      tableGrad.addColorStop(0.08, '#b89877');
+      tableGrad.addColorStop(1, '#9f7e5d');
+      ctx.fillStyle = tableGrad;
+      ctx.fillRect(0, 390, canvas.width, 210);
+
+      // 木質細緻桌紋
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
+      for (let y = 415; y < 600; y += 38) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y + 8);
+        ctx.stroke();
+      }
+
+      // 杯下淡淡柔和陰影
+      ctx.fillStyle = 'rgba(45, 38, 30, 0.18)';
+      ctx.beginPath();
+      ctx.ellipse(490, 498, 56, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 日式陶瓷馬克杯 (主體，純淨啞光米白與溫潤質感)
+      const cupX = 490;
+      const cupY = 440;
+
+      // 杯身漸層
+      const cupGrad = ctx.createLinearGradient(cupX - 42, 0, cupX + 42, 0);
+      cupGrad.addColorStop(0, '#eae6df');
+      cupGrad.addColorStop(0.35, '#faf8f5');
+      cupGrad.addColorStop(0.85, '#e4ded6');
+      cupGrad.addColorStop(1, '#c5beb3');
+
+      ctx.fillStyle = cupGrad;
+      ctx.beginPath();
+      ctx.roundRect(cupX - 42, cupY - 32, 84, 86, [4, 4, 20, 20]);
+      ctx.fill();
+
+      // 杯底陶土色粗胚底圈
+      ctx.fillStyle = '#b7977a';
+      ctx.beginPath();
+      ctx.roundRect(cupX - 40, cupY + 48, 80, 6, [0, 0, 6, 6]);
+      ctx.fill();
+
+      // 杯把手
+      ctx.strokeStyle = '#e6e1d8';
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(cupX + 48, cupY + 12, 19, -Math.PI * 0.4, Math.PI * 0.55);
+      ctx.stroke();
+
+      // 手沖黑咖啡液面
+      ctx.fillStyle = '#3a2318';
+      ctx.beginPath();
+      ctx.ellipse(cupX, cupY - 30, 38, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 咖啡液上的微光反光
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.beginPath();
+      ctx.ellipse(cupX - 10, cupY - 32, 14, 4, -0.15, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 蒸氣裊裊 (淡雅微醺感)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      const steamShift = Math.sin(timestamp * 0.0025) * 5;
+      ctx.beginPath();
+      ctx.moveTo(cupX - 6, cupY - 45);
+      ctx.bezierCurveTo(cupX - 14 + steamShift, cupY - 70, cupX + steamShift, cupY - 95, cupX - 8 + steamShift, cupY - 120);
+      ctx.stroke();
+
+      // 左側小多肉植栽盆 (點綴生活綠意)
+      const potX = 140;
+      const potY = 460;
+      ctx.fillStyle = '#dfd8ce';
+      ctx.beginPath();
+      ctx.roundRect(potX - 26, potY - 14, 52, 44, [2, 2, 8, 8]);
+      ctx.fill();
+      // 綠意葉片
+      ctx.fillStyle = '#7a8e6b';
+      ctx.beginPath();
+      ctx.ellipse(potX - 10, potY - 20, 14, 8, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#657757';
+      ctx.beginPath();
+      ctx.ellipse(potX + 10, potY - 20, 14, 8, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#8ca27c';
+      ctx.beginPath();
+      ctx.ellipse(potX, potY - 26, 11, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // -------------------------------------------------------------
+      // 5. 曝光光學效應 (Exposure Post-processing: 過曝死白 / 欠曝死黑)
+      // -------------------------------------------------------------
+      ctx.save();
+      if (brightnessFactor > 1.05) {
+        // 畫面過曝：使用純白透明覆蓋疊加
+        const overExposureAlpha = Math.min(0.95, (brightnessFactor - 1) * 0.32);
+        ctx.fillStyle = `rgba(255, 255, 255, ${overExposureAlpha})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else if (brightnessFactor < 0.95) {
+        // 畫面欠曝：使用幽暗碳黑疊加
+        const underExposureAlpha = Math.min(0.94, (1 - brightnessFactor) * 0.88);
+        ctx.fillStyle = `rgba(18, 16, 14, ${underExposureAlpha})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.restore();
+
+      // -------------------------------------------------------------
+      // 6. ISO 數位訊號噪點 (Film Grain / Noise)
+      // -------------------------------------------------------------
+      if (isoNum >= 400) {
+        ctx.save();
+        const grainIntensity = (Math.log2(isoNum / 200) * 0.035);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        // 隔點抽樣提速，維持流暢 60fps
+        for (let i = 0; i < data.length; i += 16) {
+          if (Math.random() < 0.4) {
+            const noise = (Math.random() - 0.5) * grainIntensity * 255;
+            data[i] = Math.min(255, Math.max(0, data[i] + noise));
+            data[i+1] = Math.min(255, Math.max(0, data[i+1] + noise));
+            data[i+2] = Math.min(255, Math.max(0, data[i+2] + noise));
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        ctx.restore();
+      }
+
+      ctx.restore();
+      requestAnimationFrame(renderScene);
+    }
+
+    /* =====================================================================
+       一鍵拍照與明信片相紙生成
+       ===================================================================== */
+    function captureMoment() {
+      // 1. 播放快門音效
+      playGentleShutterSound();
+
+      // 2. 觀景窗白色反光閃動 (Flash)
+      flashEffect.style.opacity = '0.85';
+      setTimeout(() => {
+        flashEffect.style.opacity = '0';
+      }, 100);
+
+      // 3. 抓取當前 Canvas 畫面，填入日系拍立得 / 明信片框
+      const dataURL = canvas.toDataURL('image/png');
+      postcardImg.src = dataURL;
+
+      const currentAperture = APERTURES[state.apertureIdx];
+      const currentShutter = SHUTTERS[state.shutterIdx];
+      const currentIso = ISOS[state.isoIdx];
+      const { diffEV } = calculateEV();
+
+      modalAperture.textContent = `f/${currentAperture}`;
+      modalShutter.textContent = currentShutter.display;
+      modalIso.textContent = `ISO ${currentIso}`;
+      modalEv.textContent = `${diffEV >= 0 ? '+' : ''}${diffEV.toFixed(1)} EV`;
+
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} · ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      postcardTimestamp.textContent = dateStr;
+
+      btnDownload.href = dataURL;
+      btnDownload.download = `camsim-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.png`;
+
+      // 顯示 Modal
+      setTimeout(() => {
+        postcardModal.classList.add('show');
+      }, 200);
+    }
+
+    /* =====================================================================
+       事件綁定與初始化
+       ===================================================================== */
+    apertureSlider.addEventListener('input', (e) => {
+      state.apertureIdx = parseInt(e.target.value, 10);
+      updateUI();
+    });
+
+    shutterSlider.addEventListener('input', (e) => {
+      state.shutterIdx = parseInt(e.target.value, 10);
+      updateUI();
+    });
+
+    isoSlider.addEventListener('input', (e) => {
+      state.isoIdx = parseInt(e.target.value, 10);
+      updateUI();
+    });
+
+    // 環境光按鈕切換
+    document.querySelectorAll('.btn-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.sceneEV = parseFloat(btn.dataset.light);
+        state.sceneName = btn.querySelector('span:first-child').textContent;
+        updateUI();
+      });
+    });
+
+    // 快門按鈕
+    btnCapture.addEventListener('click', captureMoment);
+
+    // 關閉明信片 Modal
+    btnCloseModal.addEventListener('click', () => {
+      postcardModal.classList.remove('show');
+    });
+
+    postcardModal.addEventListener('click', (e) => {
+      if (e.target === postcardModal) {
+        postcardModal.classList.remove('show');
+      }
+    });
+
+    // 初始化啟動
+    updateUI();
+    requestAnimationFrame(renderScene);
+  </script>
+</body>
+</html>
